@@ -23,6 +23,9 @@ const ADMIN_SECRET = process.env.ADMIN_SECRET || "local-dev-admin";
 app.use(cors());
 app.use(express.json({ limit: "1mb" }));
 app.use(express.static(path.join(__dirname, "public")));
+app.get("/api/health", (_req, res) => {
+  res.status(200).json({ status: "ok" });
+});
 
 const USER_AGENT = "CatholicAtlasAI/1.0 (educational-app)";
 
@@ -354,8 +357,15 @@ app.get("/api/content", async (_req, res) => {
   try {
     const raw = await fs.readFile(path.join(__dirname, "content", "editorial-content.json"), "utf8");
     res.json(JSON.parse(raw));
-  } catch (error) {
-    res.status(500).json({ error: "Impossible de charger le contenu", detail: error.message });
+    } catch (error) {
+    res.status(200).json({
+      hero: {
+        title: "Catholic Atlas AI",
+        subtitle: "Trouvez des eglises et sanctuaires catholiques"
+      },
+      suggestions: ["Lourdes", "Rome", "Fatima"],
+      tips: []
+    });
   }
 });
 
