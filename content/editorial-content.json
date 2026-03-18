@@ -1,0 +1,29 @@
+{
+  "homeHero": {
+    "title": "Catholic Atlas AI",
+    "subtitle": "Trouvez des eglises et sanctuaires catholiques partout dans le monde"
+  },
+  "suggestedPilgrimages": [
+    {
+      "name": "Lourdes (France)",
+      "why": "Grand lieu marial de pelerinage et de priere"
+    },
+    {
+      "name": "Fatima (Portugal)",
+      "why": "Sanctuaire historique et spiritualite mariale"
+    },
+    {
+      "name": "Guadalupe (Mexique)",
+      "why": "Lieu majeur en Amerique latine"
+    },
+    {
+      "name": "Vatican (Rome)",
+      "why": "Centre mondial de l'Eglise catholique"
+    }
+  ],
+  "tips": [
+    "Verifiez les horaires avant de vous deplacer",
+    "Respectez le silence liturgique",
+    "Pensez a activer la geolocalisation pour une recherche locale rapide"
+  ]
+}
