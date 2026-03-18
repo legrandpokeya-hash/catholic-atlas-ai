@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Catholic Atlas AI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <header class="hero">
+    <div class="hero-overlay"></div>
+    <div class="hero-content">
+      <h1 id="hero-title">Catholic Atlas AI</h1>
+      <p id="hero-subtitle">Localisez les eglises et sanctuaires catholiques dans le monde.</p>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="panel search-panel">
+      <h2>Recherche mondiale</h2>
+      <form id="search-form">
+        <label for="place-input">Ville, pays ou lieu</label>
+        <input id="place-input" type="text" placeholder="Ex: Rome, Italie" required />
+
+        <label for="radius-input">Rayon (metres)</label>
+        <input id="radius-input" type="number" min="1000" max="50000" value="15000" />
+
+        <div class="actions">
+          <button type="submit">Rechercher</button>
+          <button type="button" id="locate-me" class="secondary">Me localiser</button>
+        </div>
+      </form>
+
+      <p id="status" class="status">Pret.</p>
+
+      <h3>Lieux trouves</h3>
+      <ul id="places-list" class="places-list"></ul>
+    </section>
+
+    <section class="map-panel panel">
+      <div id="map"></div>
+    </section>
+
+    <section class="panel ai-panel">
+      <h2>Assistant IA de pelerinage</h2>
+
+      <div id="selected-place-card" class="place-card hidden">
+        <span class="place-card-badge" id="place-card-badge">eglise</span>
+        <div class="place-card-name" id="place-card-name">—</div>
+        <div class="place-card-addr" id="place-card-addr"></div>
+        <button id="generate-place-guide" class="btn-spiritual">✝ Generer le parcours spirituel complet</button>
+        <button id="open-admin-place" class="btn-admin" type="button">Gerer cette fiche dans l'admin</button>
+      </div>
+
+      <section id="place-details" class="details-card hidden">
+        <div class="details-media hidden" id="details-media-wrap">
+          <img id="details-image" alt="Vue du lieu selectionne" />
+        </div>
+        <div class="details-grid">
+          <div>
+            <h3>Informations utiles</h3>
+            <ul id="details-practical" class="details-list"></ul>
+          </div>
+          <div>
+            <h3>Contacts et liens</h3>
+            <ul id="details-contacts" class="details-list"></ul>
+          </div>
+        </div>
+        <div>
+          <h3>Presentation</h3>
+          <p id="details-summary" class="details-summary"></p>
+          <p id="details-note" class="details-note"></p>
+        </div>
+      </section>
+
+      <h3>Demande personnalisee</h3>
+      <label for="ai-prompt">Decrivez votre besoin (optionnel)</label>
+      <textarea id="ai-prompt" rows="4" placeholder="Ex: Propose-moi un parcours marial d'une journee, ou detaille les horaires de confession..."></textarea>
+      <button id="ask-ai">Generer un plan global</button>
+      <pre id="ai-output" class="ai-output">Selectionnez un lieu sur la carte ou dans la liste, puis cliquez sur &quot;✝ Generer le parcours spirituel complet&quot;.
+
+Ou remplissez la zone de texte ci-dessus pour une demande generale.</pre>
+
+      <h3>Pelerinages suggeres</h3>
+      <ul id="pilgrimage-suggestions"></ul>
+
+      <h3>Conseils utiles</h3>
+      <ul id="tips-list"></ul>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p>Donnees carte: OpenStreetMap, Overpass API, Nominatim</p>
+    <p><a href="/admin.html">Ouvrir l'administration des lieux</a></p>
+  </footer>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="./app.js"></script>
+</body>
+</html>
