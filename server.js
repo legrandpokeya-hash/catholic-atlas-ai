@@ -500,16 +500,19 @@ app.get("*", (_req, res) => {
 });
 
 async function startServer() {
-  await getDb();
-
   app.listen(PORT, () => {
-    // eslint-disable-next-line no-console
     console.log(`Catholic Atlas AI demarre sur http://localhost:${PORT}`);
   });
+
+  try {
+    await getDb();
+    console.log("Base de donnees SQLite initialisee.");
+  } catch (error) {
+    console.error("Erreur initialisation SQLite (non bloquante):", error.message);
+  }
 }
 
 startServer().catch((error) => {
-  // eslint-disable-next-line no-console
   console.error("Echec de demarrage de Catholic Atlas AI:", error);
   process.exit(1);
 });
