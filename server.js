@@ -211,6 +211,17 @@ async function geocodePlace(place) {
   };
 }
 
+function haversineDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371000; // metres
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 async function queryCatholicPlaces(lat, lon, radius = 15000) {
   const safeRadius = Math.min(Math.max(Number(radius) || 15000, 1000), 50000);
 
@@ -256,7 +267,9 @@ out center tags;
 
   return elements
     .map(normalizeFeature)
-    .filter((f) => Number.isFinite(f.lat) && Number.isFinite(f.lon));
+    .filter((f) => Number.isFinite(f.lat) && Number.isFinite(f.lon))
+    .map((f) => ({ ...f, distanceM: Math.round(haversineDistance(lat, lon, f.lat, f.lon)) }))
+    .sort((a, b) => a.distanceM - b.distanceM);
 }
 
 function buildFallbackAiPlaceResponse(place) {

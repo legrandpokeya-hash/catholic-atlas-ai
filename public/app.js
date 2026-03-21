@@ -178,7 +178,12 @@ function renderPlaces(places) {
   places.forEach((place) => {
     const li = document.createElement("li");
     li.dataset.id = place.id;
-    li.innerHTML = `<strong>${place.name}</strong><br><small>${place.category} ${place.address ? "- " + place.address : ""}</small>`;
+    const dist = place.distanceM != null
+      ? (place.distanceM >= 1000
+          ? ` &mdash; ${(place.distanceM / 1000).toFixed(1)} km`
+          : ` &mdash; ${place.distanceM} m`)
+      : "";
+    li.innerHTML = `<strong>${place.name}</strong><br><small>${place.category}${dist}${place.address ? " &mdash; " + escapeHtml(place.address) : ""}</small>`;
     li.addEventListener("click", () => selectPlace(place));
     listEl.appendChild(li);
 
