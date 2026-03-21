@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: catholic-atlas-ai
+    runtime: node
+    plan: starter
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: OPENAI_MODEL
+        value: gpt-4o-mini
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: ADMIN_SECRET
+        sync: false
+      - key: DATABASE_PATH
+        value: /var/data/catho-atlas.sqlite
+    disk:
+      name: catholic-atlas-data
+      mountPath: /var/data
+      sizeGB: 1

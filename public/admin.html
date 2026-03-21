@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Administration | Catholic Atlas AI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./admin.css" />
+</head>
+<body>
+  <header class="admin-hero">
+    <div>
+      <p class="eyebrow">Back-office</p>
+      <h1>Administration des paroisses et sanctuaires</h1>
+      <p>Ajoute ou corrige les horaires, activites, contacts, images et resumes pour chaque lieu.</p>
+    </div>
+    <a class="back-link" href="/">Retour a l'application</a>
+  </header>
+
+  <main class="admin-layout">
+    <section class="card">
+      <h2>Cle admin</h2>
+      <label for="admin-secret">ADMIN_SECRET</label>
+      <input id="admin-secret" type="password" placeholder="Entre la cle admin" />
+      <div class="row-actions">
+        <button id="save-secret">Enregistrer la cle</button>
+        <button id="load-selected" class="secondary">Importer le lieu selectionne</button>
+      </div>
+      <p id="config-message" class="message">Charge la configuration admin.</p>
+    </section>
+
+    <section class="card">
+      <h2>Rechercher une fiche admin</h2>
+      <div class="search-row">
+        <input id="search-query" type="text" placeholder="Nom, adresse, categorie..." />
+        <button id="search-btn">Rechercher</button>
+      </div>
+      <ul id="search-results" class="result-list"></ul>
+    </section>
+
+    <section class="card form-card">
+      <h2>Edition de la fiche</h2>
+      <form id="admin-form">
+        <div class="grid-two">
+          <div>
+            <label for="external-id">Identifiant externe</label>
+            <input id="external-id" name="externalId" type="text" readonly />
+          </div>
+          <div>
+            <label for="source-label">Source / libelle</label>
+            <input id="source-label" name="sourceLabel" type="text" placeholder="Ex: Secretariat paroissial" />
+          </div>
+        </div>
+
+        <div class="grid-two">
+          <div>
+            <label for="osm-type">OSM type</label>
+            <input id="osm-type" name="osmType" type="text" placeholder="node / way / relation" />
+          </div>
+          <div>
+            <label for="osm-id">OSM ID</label>
+            <input id="osm-id" name="osmId" type="text" placeholder="123456" />
+          </div>
+        </div>
+
+        <div class="grid-two">
+          <div>
+            <label for="name">Nom</label>
+            <input id="name" name="name" type="text" required />
+          </div>
+          <div>
+            <label for="category">Categorie</label>
+            <select id="category" name="category">
+              <option value="eglise">Eglise</option>
+              <option value="sanctuaire">Sanctuaire</option>
+              <option value="paroisse">Paroisse</option>
+              <option value="cathedrale">Cathedrale</option>
+            </select>
+          </div>
+        </div>
+
+        <label for="address">Adresse</label>
+        <input id="address" name="address" type="text" />
+
+        <div class="grid-two">
+          <div>
+            <label for="lat">Latitude</label>
+            <input id="lat" name="lat" type="number" step="any" />
+          </div>
+          <div>
+            <label for="lon">Longitude</label>
+            <input id="lon" name="lon" type="number" step="any" />
+          </div>
+        </div>
+
+        <div class="grid-two">
+          <div>
+            <label for="mass-times">Horaires de messe</label>
+            <textarea id="mass-times" name="massTimes" rows="4" placeholder="Dim 08:00, 10:30, 18:00"></textarea>
+          </div>
+          <div>
+            <label for="confession-times">Horaires de confession</label>
+            <textarea id="confession-times" name="confessionTimes" rows="4"></textarea>
+          </div>
+        </div>
+
+        <div class="grid-two">
+          <div>
+            <label for="adoration-times">Adoration</label>
+            <textarea id="adoration-times" name="adorationTimes" rows="3"></textarea>
+          </div>
+          <div>
+            <label for="opening-hours">Heures d'ouverture</label>
+            <textarea id="opening-hours" name="openingHours" rows="3"></textarea>
+          </div>
+        </div>
+
+        <label for="activities">Activites paroissiales</label>
+        <textarea id="activities" name="activities" rows="4" placeholder="Catechese, groupe de jeunes, chorale, adoration mensuelle..."></textarea>
+
+        <div class="grid-two">
+          <div>
+            <label for="phone">Telephone</label>
+            <input id="phone" name="phone" type="text" />
+          </div>
+          <div>
+            <label for="email">Email</label>
+            <input id="email" name="email" type="email" />
+          </div>
+        </div>
+
+        <div class="grid-two">
+          <div>
+            <label for="website">Site web</label>
+            <input id="website" name="website" type="url" />
+          </div>
+          <div>
+            <label for="image-url">Image principale</label>
+            <input id="image-url" name="imageUrl" type="url" placeholder="https://..." />
+          </div>
+        </div>
+
+        <div class="grid-two">
+          <div>
+            <label for="facebook">Facebook</label>
+            <input id="facebook" name="facebook" type="url" />
+          </div>
+          <div>
+            <label for="instagram">Instagram</label>
+            <input id="instagram" name="instagram" type="url" />
+          </div>
+        </div>
+
+        <label for="summary">Presentation du lieu</label>
+        <textarea id="summary" name="summary" rows="5"></textarea>
+
+        <label for="notes">Informations complementaires</label>
+        <textarea id="notes" name="notes" rows="4"></textarea>
+
+        <label for="admin-comment">Note interne / provenance</label>
+        <textarea id="admin-comment" name="adminComment" rows="3" placeholder="Ex: verifie par le secretariat le 18/03/2026"></textarea>
+
+        <div class="row-actions">
+          <button type="submit">Enregistrer la fiche</button>
+          <button type="button" id="delete-btn" class="danger">Supprimer</button>
+          <button type="button" id="new-btn" class="secondary">Nouvelle fiche</button>
+        </div>
+      </form>
+      <p id="form-status" class="message">Aucune action effectuee.</p>
+    </section>
+  </main>
+
+  <script src="./admin.js"></script>
+</body>
+</html>

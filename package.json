@@ -1,0 +1,24 @@
+{
+  "name": "catho-geoloc-ai",
+  "version": "1.0.0",
+  "description": "Geolocalisation mondiale des eglises et sanctuaires catholiques avec assistant IA",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "cap:sync": "npx cap sync",
+    "cap:sync:android": "npx cap sync android",
+    "cap:open:android": "npx cap open android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.2.0",
+    "@capacitor/cli": "^8.2.0",
+    "@capacitor/core": "^8.2.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0",
+    "node-fetch": "^2.7.0",
+    "sqlite": "^5.1.1",
+    "sqlite3": "5.1.7"
+  }
+}

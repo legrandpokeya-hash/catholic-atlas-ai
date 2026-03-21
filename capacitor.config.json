@@ -1,0 +1,9 @@
+{
+  "appId": "com.catholicatlas.ai",
+  "appName": "Catholic Atlas AI",
+  "webDir": "public",
+  "server": {
+    "url": "https://catholic-atlas-ai.onrender.com",
+    "androidScheme": "https"
+  }
+}
