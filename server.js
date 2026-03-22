@@ -131,7 +131,7 @@ function tokenOverlapScore(a, b) {
   return common / Math.max(setA.size, setB.size);
 }
 
-function scorePlaceCandidate(place, wantedName) {
+function scorePlaceCandidate(place, wantedName, referencePoint = null) {
   const rawName = String(place.name || "");
   const normalizedWanted = normalizeSearchText(wantedName);
   const normalizedName = normalizeSearchText(rawName);
@@ -148,17 +148,26 @@ function scorePlaceCandidate(place, wantedName) {
 
   if (place.tags?.denomination && String(place.tags.denomination).toLowerCase().includes("cath")) score += 2;
   if (place.tags?.religion && String(place.tags.religion).toLowerCase().includes("christ")) score += 1;
+  if (place.tags?.building && String(place.tags.building).toLowerCase().includes("church")) score += 1;
+
+  if (referencePoint && Number.isFinite(referencePoint.lat) && Number.isFinite(referencePoint.lon)) {
+    const distance = haversineDistance(referencePoint.lat, referencePoint.lon, place.lat, place.lon);
+    if (distance <= 150) score += 5;
+    else if (distance <= 500) score += 3;
+    else if (distance <= 1500) score += 2;
+    else if (distance <= 5000) score += 1;
+  }
 
   return score;
 }
 
-function pickBestPlaceCandidate(candidates, wantedName) {
+function pickBestPlaceCandidate(candidates, wantedName, referencePoint = null) {
   if (!candidates.length) {
     return null;
   }
 
   const scored = candidates
-    .map((place) => ({ place, score: scorePlaceCandidate(place, wantedName) }))
+    .map((place) => ({ place, score: scorePlaceCandidate(place, wantedName, referencePoint) }))
     .sort((a, b) => b.score - a.score);
 
   return scored[0].place;
@@ -187,25 +196,39 @@ async function findCatholicPlaceByName(name) {
     return null;
   }
 
-  // Geocode first, then score catholic places around this point.
-  // This is more reliable than a global name regex query on Overpass.
-  let geo;
+  let geocodeCandidates;
   try {
-    geo = await geocodePlace(cleanName);
+    geocodeCandidates = await geocodeSearch(cleanName, 5);
   } catch {
     return null;
   }
 
-  const fallbackRadii = [8000, 12000, 16000];
-  for (const r of fallbackRadii) {
-    try {
-      const around = await queryCatholicPlaces(geo.lat, geo.lon, r);
-      const best = pickBestPlaceCandidate(around, cleanName);
-      if (best) {
-        return best;
+  if (!geocodeCandidates.length) {
+    return null;
+  }
+
+  const rankedGeocodes = geocodeCandidates
+    .map((candidate) => ({ candidate, score: scoreGeocodeCandidate(candidate, cleanName) }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3);
+
+  const fallbackRadii = [500, 1500, 5000, 12000];
+  for (const entry of rankedGeocodes) {
+    const referencePoint = {
+      lat: Number(entry.candidate.lat),
+      lon: Number(entry.candidate.lon)
+    };
+
+    for (const r of fallbackRadii) {
+      try {
+        const around = await queryCatholicPlaces(referencePoint.lat, referencePoint.lon, r);
+        const best = pickBestPlaceCandidate(around, cleanName, referencePoint);
+        if (best && scorePlaceCandidate(best, cleanName, referencePoint) >= 4) {
+          return best;
+        }
+      } catch {
+        // Continue with the next radius to tolerate transient Overpass failures.
       }
-    } catch {
-      // Continue with the next radius to tolerate transient Overpass failures.
     }
   }
 
@@ -335,8 +358,7 @@ function requireAdmin(req, res, next) {
 }
 
 async function geocodePlace(place) {
-  const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(place)}&limit=1`;
-  const data = await fetchJson(url);
+  const data = await geocodeSearch(place, 1);
 
   if (!data || data.length === 0) {
     throw new Error("Aucun resultat de geocodage");
@@ -347,6 +369,30 @@ async function geocodePlace(place) {
     lon: Number(data[0].lon),
     displayName: data[0].display_name
   };
+}
+
+async function geocodeSearch(place, limit = 5) {
+  const url = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&namedetails=1&extratags=1&q=${encodeURIComponent(place)}&limit=${limit}`;
+  return fetchJson(url);
+}
+
+function scoreGeocodeCandidate(candidate, wantedName) {
+  const label = [candidate.display_name, candidate.namedetails?.name, candidate.name]
+    .filter(Boolean)
+    .join(" ");
+  let score = 0;
+  const overlap = tokenOverlapScore(label, wantedName);
+
+  if (overlap >= 0.8) score += 6;
+  else if (overlap >= 0.5) score += 3;
+  else if (overlap > 0) score += 1;
+
+  const category = String(candidate.class || candidate.category || "").toLowerCase();
+  const type = String(candidate.type || "").toLowerCase();
+  if (["amenity", "building", "historic"].includes(category)) score += 2;
+  if (["place_of_worship", "church", "cathedral", "chapel", "shrine", "wayside_shrine", "monastery"].includes(type)) score += 4;
+
+  return score;
 }
 
 function haversineDistance(lat1, lon1, lat2, lon2) {
@@ -403,6 +449,9 @@ out center tags;
   node["amenity"="place_of_worship"]["religion"~"christian|catholic",i](around:${safeRadius},${lat},${lon});
   way["amenity"="place_of_worship"]["religion"~"christian|catholic",i](around:${safeRadius},${lat},${lon});
   relation["amenity"="place_of_worship"]["religion"~"christian|catholic",i](around:${safeRadius},${lat},${lon});
+  node["amenity"="place_of_worship"]["denomination"~"catholic",i](around:${safeRadius},${lat},${lon});
+  way["amenity"="place_of_worship"]["denomination"~"catholic",i](around:${safeRadius},${lat},${lon});
+  relation["amenity"="place_of_worship"]["denomination"~"catholic",i](around:${safeRadius},${lat},${lon});
   node["historic"="wayside_shrine"](around:${safeRadius},${lat},${lon});
 );
 out center tags;
@@ -411,6 +460,25 @@ out center tags;
     const relaxedData = await runOverpassQuery(relaxedQuery);
 
     elements = relaxedData.elements || [];
+  }
+
+  if (!elements.length) {
+    const broadQuery = `
+[out:json][timeout:25];
+(
+  node["building"~"church|cathedral|chapel",i](around:${safeRadius},${lat},${lon});
+  way["building"~"church|cathedral|chapel",i](around:${safeRadius},${lat},${lon});
+  relation["building"~"church|cathedral|chapel",i](around:${safeRadius},${lat},${lon});
+  node["amenity"="place_of_worship"](around:${safeRadius},${lat},${lon});
+  way["amenity"="place_of_worship"](around:${safeRadius},${lat},${lon});
+  relation["amenity"="place_of_worship"](around:${safeRadius},${lat},${lon});
+  node["historic"="wayside_shrine"](around:${safeRadius},${lat},${lon});
+);
+out center tags;
+`;
+
+    const broadData = await runOverpassQuery(broadQuery);
+    elements = broadData.elements || [];
   }
 
   return elements
