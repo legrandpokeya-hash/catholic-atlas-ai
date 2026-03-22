@@ -91,56 +91,110 @@ function escapeOverpassRegex(input) {
   return String(input || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+function normalizeSearchText(value) {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\bste\.?\b/g, "sainte")
+    .replace(/\bst\.?\b/g, "saint")
+    .replace(/\bnd\b/g, "notre dame")
+    .replace(/[^a-z0-9 ]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function tokenOverlapScore(a, b) {
+  const aTokens = normalizeSearchText(a).split(" ").filter(Boolean);
+  const bTokens = normalizeSearchText(b).split(" ").filter(Boolean);
+
+  if (!aTokens.length || !bTokens.length) {
+    return 0;
+  }
+
+  const setA = new Set(aTokens);
+  const setB = new Set(bTokens);
+  let common = 0;
+  for (const token of setA) {
+    if (setB.has(token)) {
+      common += 1;
+    }
+  }
+
+  return common / Math.max(setA.size, setB.size);
+}
+
+function scorePlaceCandidate(place, wantedName) {
+  const rawName = String(place.name || "");
+  const normalizedWanted = normalizeSearchText(wantedName);
+  const normalizedName = normalizeSearchText(rawName);
+  let score = 0;
+
+  if (normalizedName === normalizedWanted) score += 8;
+  if (normalizedName.includes(normalizedWanted)) score += 4;
+  if (normalizedWanted.includes(normalizedName)) score += 2;
+
+  const overlap = tokenOverlapScore(normalizedWanted, normalizedName);
+  if (overlap >= 0.8) score += 4;
+  else if (overlap >= 0.5) score += 2;
+  else if (overlap > 0) score += 1;
+
+  if (place.tags?.denomination && String(place.tags.denomination).toLowerCase().includes("cath")) score += 2;
+  if (place.tags?.religion && String(place.tags.religion).toLowerCase().includes("christ")) score += 1;
+
+  return score;
+}
+
+function pickBestPlaceCandidate(candidates, wantedName) {
+  if (!candidates.length) {
+    return null;
+  }
+
+  const scored = candidates
+    .map((place) => ({ place, score: scorePlaceCandidate(place, wantedName) }))
+    .sort((a, b) => b.score - a.score);
+
+  return scored[0].place;
+}
+
+function buildNameRegexAlternatives(name) {
+  const raw = String(name || "").trim();
+  const normalized = normalizeSearchText(raw);
+  const variants = new Set([raw]);
+
+  if (normalized) {
+    variants.add(normalized.replace(/\bsaint\b/g, "st"));
+    variants.add(normalized.replace(/\bsainte\b/g, "ste"));
+    variants.add(normalized.replace(/\bnotre dame\b/g, "nd"));
+  }
+
+  return Array.from(variants)
+    .map((v) => v.trim())
+    .filter(Boolean)
+    .map((v) => escapeOverpassRegex(v));
+}
+
 async function findCatholicPlaceByName(name) {
   const cleanName = String(name || "").trim();
   if (!cleanName) {
     return null;
   }
 
-  const overpassPattern = escapeOverpassRegex(cleanName);
-  const byNameQuery = `
-[out:json][timeout:25];
-(
-  node["name"~"${overpassPattern}",i]["amenity"="place_of_worship"]["religion"~"christian|catholic",i];
-  way["name"~"${overpassPattern}",i]["amenity"="place_of_worship"]["religion"~"christian|catholic",i];
-  relation["name"~"${overpassPattern}",i]["amenity"="place_of_worship"]["religion"~"christian|catholic",i];
-  node["name"~"${overpassPattern}",i]["building"="church"];
-  way["name"~"${overpassPattern}",i]["building"="church"];
-  relation["name"~"${overpassPattern}",i]["building"="church"];
-);
-out center tags 25;
-`;
-
-  const data = await fetchJson("https://overpass-api.de/api/interpreter", {
-    method: "POST",
-    headers: { "Content-Type": "text/plain;charset=UTF-8" },
-    body: byNameQuery
-  });
-
-  const candidates = (data.elements || [])
-    .map(normalizeFeature)
-    .filter((f) => Number.isFinite(f.lat) && Number.isFinite(f.lon));
-
-  if (!candidates.length) {
+  // Geocode first, then score catholic places around this point.
+  // This is more reliable than a global name regex query on Overpass.
+  let geo;
+  try {
+    geo = await geocodePlace(cleanName);
+  } catch {
     return null;
   }
 
-  const wanted = cleanName.toLowerCase();
-  const scored = candidates.map((place) => {
-    const n = String(place.name || "").toLowerCase();
-    let score = 0;
-
-    if (n === wanted) score += 6;
-    if (n.includes(wanted)) score += 3;
-    if (wanted.includes(n)) score += 2;
-    if (place.tags?.denomination && String(place.tags.denomination).toLowerCase().includes("cath")) score += 2;
-    if (place.tags?.religion && String(place.tags.religion).toLowerCase().includes("christ")) score += 1;
-
-    return { place, score };
-  });
-
-  scored.sort((a, b) => b.score - a.score);
-  return scored[0].place;
+  try {
+    const around = await queryCatholicPlaces(geo.lat, geo.lon, 20000);
+    return pickBestPlaceCandidate(around, cleanName);
+  } catch {
+    return null;
+  }
 }
 
 function getFirstTag(tags, keys) {
