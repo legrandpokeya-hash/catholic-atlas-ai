@@ -173,6 +173,52 @@ function pickBestPlaceCandidate(candidates, wantedName, referencePoint = null) {
   return scored[0].place;
 }
 
+function normalizeGeocodeCandidate(candidate) {
+  const tags = {
+    ...(candidate.extratags || {}),
+    ...(candidate.namedetails?.name ? { name: candidate.namedetails.name } : {}),
+    ...(candidate.name ? { name: candidate.name } : {})
+  };
+
+  if (!tags.name && candidate.address?.amenity) {
+    tags.name = candidate.address.amenity;
+  }
+
+  if (candidate.address?.road) {
+    tags["addr:street"] = candidate.address.road;
+  }
+
+  if (candidate.address?.house_number) {
+    tags["addr:housenumber"] = candidate.address.house_number;
+  }
+
+  if (candidate.address?.city || candidate.address?.town || candidate.address?.village) {
+    tags["addr:city"] = candidate.address.city || candidate.address.town || candidate.address.village;
+  }
+
+  return normalizeFeature({
+    id: Number(candidate.osm_id) || Number(candidate.place_id) || Date.now(),
+    type: candidate.osm_type || "node",
+    lat: Number(candidate.lat),
+    lon: Number(candidate.lon),
+    tags
+  });
+}
+
+function isLikelyCatholicWorshipCandidate(candidate, wantedName) {
+  const category = String(candidate.class || candidate.category || "").toLowerCase();
+  const type = String(candidate.type || "").toLowerCase();
+  const denomination = String(candidate.extratags?.denomination || "").toLowerCase();
+  const religion = String(candidate.extratags?.religion || "").toLowerCase();
+  const score = scoreGeocodeCandidate(candidate, wantedName);
+
+  const worshipType = ["place_of_worship", "church", "cathedral", "chapel", "shrine", "wayside_shrine", "monastery"].includes(type);
+  const worshipClass = ["amenity", "building", "historic"].includes(category);
+  const catholicHint = denomination.includes("cath") || denomination.includes("roman_catholic") || religion.includes("christ");
+
+  return score >= 7 && worshipType && worshipClass && catholicHint;
+}
+
 function buildNameRegexAlternatives(name) {
   const raw = String(name || "").trim();
   const normalized = normalizeSearchText(raw);
@@ -211,6 +257,12 @@ async function findCatholicPlaceByName(name) {
     .map((candidate) => ({ candidate, score: scoreGeocodeCandidate(candidate, cleanName) }))
     .sort((a, b) => b.score - a.score)
     .slice(0, 3);
+
+  for (const entry of rankedGeocodes) {
+    if (isLikelyCatholicWorshipCandidate(entry.candidate, cleanName)) {
+      return normalizeGeocodeCandidate(entry.candidate);
+    }
+  }
 
   const fallbackRadii = [500, 1500, 5000, 12000];
   for (const entry of rankedGeocodes) {
