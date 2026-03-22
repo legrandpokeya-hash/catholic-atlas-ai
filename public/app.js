@@ -399,6 +399,10 @@ searchForm.addEventListener("submit", async (event) => {
     selectPlace(searchData.matched);
     await generateGuideForSelectedPlace();
   } catch (error) {
+    if (String(error.message || "").toLowerCase().includes("temporairement indisponible")) {
+      setStatus("La recherche des lieux proches est temporairement indisponible. Reessayez dans quelques instants.", true);
+      return;
+    }
     if (String(error.message || "").toLowerCase().includes("non trouve")) {
       setStatus("Lieu non trouve. Verifiez l'orthographe et essayez un autre nom.", true);
       return;

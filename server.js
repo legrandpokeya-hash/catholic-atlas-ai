@@ -29,6 +29,11 @@ app.get("/api/health", (_req, res) => {
 });
 
 const USER_AGENT = "CatholicAtlasAI/1.0 (educational-app)";
+const OVERPASS_ENDPOINTS = [
+  "https://overpass-api.de/api/interpreter",
+  "https://overpass.kumi.systems/api/interpreter",
+  "https://overpass.private.coffee/api/interpreter"
+];
 
 async function fetchJson(url, options = {}) {
   const response = await fetch(url, {
@@ -369,11 +374,25 @@ async function queryCatholicPlaces(lat, lon, radius = 15000) {
 out center tags;
 `;
 
-  const strictData = await fetchJson("https://overpass-api.de/api/interpreter", {
-    method: "POST",
-    headers: { "Content-Type": "text/plain;charset=UTF-8" },
-    body: strictQuery
-  });
+  async function runOverpassQuery(query) {
+    let lastError = null;
+
+    for (const endpoint of OVERPASS_ENDPOINTS) {
+      try {
+        return await fetchJson(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=UTF-8" },
+          body: query
+        });
+      } catch (error) {
+        lastError = error;
+      }
+    }
+
+    throw lastError || new Error("Service cartographique temporairement indisponible.");
+  }
+
+  const strictData = await runOverpassQuery(strictQuery);
 
   let elements = strictData.elements || [];
 
@@ -389,11 +408,7 @@ out center tags;
 out center tags;
 `;
 
-    const relaxedData = await fetchJson("https://overpass-api.de/api/interpreter", {
-      method: "POST",
-      headers: { "Content-Type": "text/plain;charset=UTF-8" },
-      body: relaxedQuery
-    });
+    const relaxedData = await runOverpassQuery(relaxedQuery);
 
     elements = relaxedData.elements || [];
   }
@@ -597,7 +612,10 @@ app.get("/api/places", async (req, res) => {
     const places = await queryCatholicPlaces(lat, lon, radius);
     return res.json({ count: places.length, places });
   } catch (error) {
-    return res.status(500).json({ error: "Erreur recherche lieux", detail: error.message });
+    return res.status(503).json({
+      error: "Recherche des lieux temporairement indisponible",
+      detail: error.message
+    });
   }
 });
 
