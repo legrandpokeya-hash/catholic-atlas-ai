@@ -25,6 +25,8 @@ let currentPlaces = [];
 let currentLocationText = "";
 let selectedPlace = null;
 let activeListItem = null;
+let currentUserCoords = null;
+let autoLocateAttempted = false;
 
 const map = L.map("map").setView([48.8566, 2.3522], 6);
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -39,6 +41,26 @@ function setStatus(text, isError = false) {
   statusEl.textContent = text;
   statusEl.style.borderLeftColor = isError ? "#9f2f2f" : "#b98b2f";
   statusEl.style.background = isError ? "#ffeaea" : "#fff7e5";
+}
+
+function getGeolocationErrorMessage(error) {
+  if (!error) {
+    return "Impossible d'obtenir votre position.";
+  }
+
+  if (error.code === 1) {
+    return "La localisation a ete refusee par le navigateur. Autorisez l'acces a votre position pour voir les eglises, sanctuaires et basiliques les plus proches.";
+  }
+
+  if (error.code === 2) {
+    return "Votre position n'a pas pu etre determinee pour le moment. Reessayez dans quelques secondes.";
+  }
+
+  if (error.code === 3) {
+    return "La demande de localisation a expire. Reessayez.";
+  }
+
+  return error.message || "Impossible d'obtenir votre position.";
 }
 
 function escapeHtml(value) {
@@ -242,6 +264,8 @@ async function searchByCoordinates(lat, lon, radius, locationLabel = "") {
   setStatus("Recherche en cours...");
   const data = await fetchJson(`/api/places?lat=${lat}&lon=${lon}&radius=${radius}`);
 
+  currentUserCoords = { lat, lon };
+
   currentPlaces = data.places || [];
   selectedPlace = null;
   placeCard.classList.add("hidden");
@@ -262,7 +286,11 @@ async function searchByCoordinates(lat, lon, radius, locationLabel = "") {
   }).addTo(map);
 
   currentLocationText = locationLabel || `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
-  setStatus(`${currentPlaces.length} lieu(x) catholique(s) trouve(s).`);
+  if (currentPlaces.length > 0) {
+    setStatus(`${currentPlaces.length} lieu(x) catholique(s) trouve(s) pres de vous.`);
+  } else {
+    setStatus("Aucun lieu catholique proche n'a ete trouve pour cette position.", true);
+  }
 }
 
 async function generateGuideForSelectedPlace() {
@@ -291,9 +319,48 @@ function getCurrentPosition() {
     navigator.geolocation.getCurrentPosition(resolve, reject, {
       enableHighAccuracy: true,
       timeout: 15000,
-      maximumAge: 0
+      maximumAge: 300000
     });
   });
+}
+
+async function locateNearbyPlaces(options = {}) {
+  const { autoSelectFirst = false, autoScroll = false } = options;
+  const radius = Number(radiusInput.value || 15000);
+
+  setStatus("Obtention de votre position...");
+
+  let coords = currentUserCoords;
+  if (!coords) {
+    const position = await getCurrentPosition();
+    coords = {
+      lat: position.coords.latitude,
+      lon: position.coords.longitude
+    };
+  }
+
+  await searchByCoordinates(coords.lat, coords.lon, radius, "autour de vous");
+
+  if (autoSelectFirst && currentPlaces.length > 0) {
+    selectPlace(currentPlaces[0]);
+    if (autoScroll) {
+      placeCard.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  }
+}
+
+async function autoLocateNearbyPlaces() {
+  if (autoLocateAttempted) {
+    return;
+  }
+
+  autoLocateAttempted = true;
+
+  try {
+    await locateNearbyPlaces({ autoSelectFirst: true });
+  } catch (error) {
+    setStatus(getGeolocationErrorMessage(error), true);
+  }
 }
 
 searchForm.addEventListener("submit", async (event) => {
@@ -303,14 +370,7 @@ searchForm.addEventListener("submit", async (event) => {
 
   try {
     if (!place) {
-      setStatus("Obtention de votre position...");
-      const position = await getCurrentPosition();
-      await searchByCoordinates(
-        position.coords.latitude,
-        position.coords.longitude,
-        radius,
-        "position actuelle"
-      );
+      await locateNearbyPlaces({ autoSelectFirst: true, autoScroll: true });
       return;
     }
 
@@ -348,19 +408,10 @@ searchForm.addEventListener("submit", async (event) => {
 });
 
 locateBtn.addEventListener("click", async () => {
-  setStatus("Obtention de votre position...");
-
   try {
-    const position = await getCurrentPosition();
-    const radius = Number(radiusInput.value || 15000);
-    await searchByCoordinates(
-      position.coords.latitude,
-      position.coords.longitude,
-      radius,
-      "position actuelle"
-    );
+    await locateNearbyPlaces({ autoSelectFirst: true, autoScroll: true });
   } catch (error) {
-    setStatus(`Impossible d'obtenir la position: ${error.message}`, true);
+    setStatus(getGeolocationErrorMessage(error), true);
   }
 });
 
@@ -404,3 +455,4 @@ askAiBtn.addEventListener("click", async () => {
 });
 
 loadEditorialContent();
+autoLocateNearbyPlaces();

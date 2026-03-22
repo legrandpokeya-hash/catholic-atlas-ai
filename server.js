@@ -67,7 +67,9 @@ function normalizeFeature(el) {
 
   let category = "eglise";
   const lowerName = name.toLowerCase();
-  if (lowerName.includes("sanct") || lowerName.includes("shrine")) {
+  if (lowerName.includes("basil") || lowerName.includes("basilica")) {
+    category = "basilique";
+  } else if (lowerName.includes("sanct") || lowerName.includes("shrine")) {
     category = "sanctuaire";
   } else if (lowerName.includes("paroiss") || lowerName.includes("parish")) {
     category = "paroisse";
