@@ -189,12 +189,20 @@ async function findCatholicPlaceByName(name) {
     return null;
   }
 
-  try {
-    const around = await queryCatholicPlaces(geo.lat, geo.lon, 20000);
-    return pickBestPlaceCandidate(around, cleanName);
-  } catch {
-    return null;
+  const fallbackRadii = [8000, 12000, 16000];
+  for (const r of fallbackRadii) {
+    try {
+      const around = await queryCatholicPlaces(geo.lat, geo.lon, r);
+      const best = pickBestPlaceCandidate(around, cleanName);
+      if (best) {
+        return best;
+      }
+    } catch {
+      // Continue with the next radius to tolerate transient Overpass failures.
+    }
   }
+
+  return null;
 }
 
 function getFirstTag(tags, keys) {
