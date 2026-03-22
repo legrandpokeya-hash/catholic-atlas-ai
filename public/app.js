@@ -52,9 +52,22 @@ function escapeHtml(value) {
 
 async function fetchJson(url, options = {}) {
   const res = await fetch(url, options);
-  const data = await res.json();
+  const text = await res.text();
+  let data = {};
+
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      if (!res.ok) {
+        throw new Error("Erreur serveur, reponse invalide.");
+      }
+      throw new Error("Reponse serveur invalide.");
+    }
+  }
+
   if (!res.ok) {
-    throw new Error(data.detail || data.error || "Erreur reseau");
+    throw new Error(data.error || "Erreur reseau");
   }
   return data;
 }
@@ -252,6 +265,22 @@ async function searchByCoordinates(lat, lon, radius, locationLabel = "") {
   setStatus(`${currentPlaces.length} lieu(x) catholique(s) trouve(s).`);
 }
 
+async function generateGuideForSelectedPlace() {
+  if (!selectedPlace) return;
+
+  aiOutputEl.textContent = `Generation du guide spirituel pour "${selectedPlace.name}"...`;
+  aiOutputEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
+
+  const response = await fetchJson("/api/ai/place", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ place: selectedPlace })
+  });
+
+  const source = response.from === "openai" ? "IA OpenAI" : "Mode local";
+  aiOutputEl.textContent = `[${source}]\n\n${response.text}`;
+}
+
 function getCurrentPosition() {
   return new Promise((resolve, reject) => {
     if (!navigator.geolocation) {
@@ -285,9 +314,35 @@ searchForm.addEventListener("submit", async (event) => {
       return;
     }
 
-    const geo = await fetchJson(`/api/geocode?place=${encodeURIComponent(place)}`);
-    await searchByCoordinates(geo.lat, geo.lon, radius, geo.displayName);
+    const searchData = await fetchJson(`/api/place-search?name=${encodeURIComponent(place)}&radius=${radius}`);
+    currentPlaces = searchData.places || [];
+    currentLocationText = searchData.locationText || place;
+
+    placeCard.classList.add("hidden");
+    placeDetailsEl.classList.add("hidden");
+    renderPlaces(currentPlaces);
+
+    if (!searchData.matched) {
+      setStatus("Lieu non trouve. Verifiez l'orthographe et essayez un nom plus precis.", true);
+      return;
+    }
+
+    map.setView([searchData.matched.lat, searchData.matched.lon], 14);
+    searchCircle = L.circle([searchData.matched.lat, searchData.matched.lon], {
+      radius,
+      color: "#84401a",
+      fillColor: "#b98b2f",
+      fillOpacity: 0.1
+    }).addTo(map);
+
+    setStatus(`Lieu trouve: ${searchData.matched.name}. Generation des informations utiles...`);
+    selectPlace(searchData.matched);
+    await generateGuideForSelectedPlace();
   } catch (error) {
+    if (String(error.message || "").toLowerCase().includes("non trouve")) {
+      setStatus("Lieu non trouve. Verifiez l'orthographe et essayez un autre nom.", true);
+      return;
+    }
     setStatus(`Recherche impossible: ${error.message}`, true);
   }
 });
@@ -310,19 +365,8 @@ locateBtn.addEventListener("click", async () => {
 });
 
 generatePlaceGuideBtn.addEventListener("click", async () => {
-  if (!selectedPlace) return;
-  aiOutputEl.textContent = `Generation du guide spirituel pour "${selectedPlace.name}"...`;
-  aiOutputEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
-
   try {
-    const response = await fetchJson("/api/ai/place", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ place: selectedPlace })
-    });
-
-    const source = response.from === "openai" ? "IA OpenAI" : "Mode local";
-    aiOutputEl.textContent = `[${source}]\n\n${response.text}`;
+    await generateGuideForSelectedPlace();
   } catch (error) {
     aiOutputEl.textContent = `Erreur: ${error.message}`;
   }

@@ -41,8 +41,19 @@ async function fetchJson(url, options = {}) {
   });
 
   if (!response.ok) {
-    const body = await response.text();
-    throw new Error(`HTTP ${response.status} - ${body.slice(0, 200)}`);
+    const contentType = response.headers.get("content-type") || "";
+    let upstreamMessage = `Service externe indisponible (HTTP ${response.status}).`;
+
+    if (contentType.includes("application/json")) {
+      try {
+        const body = await response.json();
+        upstreamMessage = body?.error || body?.message || upstreamMessage;
+      } catch {
+        // Ignore JSON parsing errors and keep a safe generic message.
+      }
+    }
+
+    throw new Error(upstreamMessage);
   }
 
   return response.json();
@@ -58,6 +69,8 @@ function normalizeFeature(el) {
   const lowerName = name.toLowerCase();
   if (lowerName.includes("sanct") || lowerName.includes("shrine")) {
     category = "sanctuaire";
+  } else if (lowerName.includes("paroiss") || lowerName.includes("parish")) {
+    category = "paroisse";
   }
 
   return {
@@ -72,6 +85,62 @@ function normalizeFeature(el) {
       .join(" "),
     tags
   };
+}
+
+function escapeOverpassRegex(input) {
+  return String(input || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+async function findCatholicPlaceByName(name) {
+  const cleanName = String(name || "").trim();
+  if (!cleanName) {
+    return null;
+  }
+
+  const overpassPattern = escapeOverpassRegex(cleanName);
+  const byNameQuery = `
+[out:json][timeout:25];
+(
+  node["name"~"${overpassPattern}",i]["amenity"="place_of_worship"]["religion"~"christian|catholic",i];
+  way["name"~"${overpassPattern}",i]["amenity"="place_of_worship"]["religion"~"christian|catholic",i];
+  relation["name"~"${overpassPattern}",i]["amenity"="place_of_worship"]["religion"~"christian|catholic",i];
+  node["name"~"${overpassPattern}",i]["building"="church"];
+  way["name"~"${overpassPattern}",i]["building"="church"];
+  relation["name"~"${overpassPattern}",i]["building"="church"];
+);
+out center tags 25;
+`;
+
+  const data = await fetchJson("https://overpass-api.de/api/interpreter", {
+    method: "POST",
+    headers: { "Content-Type": "text/plain;charset=UTF-8" },
+    body: byNameQuery
+  });
+
+  const candidates = (data.elements || [])
+    .map(normalizeFeature)
+    .filter((f) => Number.isFinite(f.lat) && Number.isFinite(f.lon));
+
+  if (!candidates.length) {
+    return null;
+  }
+
+  const wanted = cleanName.toLowerCase();
+  const scored = candidates.map((place) => {
+    const n = String(place.name || "").toLowerCase();
+    let score = 0;
+
+    if (n === wanted) score += 6;
+    if (n.includes(wanted)) score += 3;
+    if (wanted.includes(n)) score += 2;
+    if (place.tags?.denomination && String(place.tags.denomination).toLowerCase().includes("cath")) score += 2;
+    if (place.tags?.religion && String(place.tags.religion).toLowerCase().includes("christ")) score += 1;
+
+    return { place, score };
+  });
+
+  scored.sort((a, b) => b.score - a.score);
+  return scored[0].place;
 }
 
 function getFirstTag(tags, keys) {
@@ -416,7 +485,38 @@ app.get("/api/geocode", async (req, res) => {
     const result = await geocodePlace(place);
     return res.json(result);
   } catch (error) {
-    return res.status(500).json({ error: "Erreur geocodage", detail: error.message });
+    if (error.message && error.message.includes("Aucun resultat de geocodage")) {
+      return res.status(404).json({ error: "Lieu non trouve" });
+    }
+    return res.status(500).json({ error: "Erreur geocodage" });
+  }
+});
+
+app.get("/api/place-search", async (req, res) => {
+  try {
+    const name = String(req.query.name || "").trim();
+    const radius = Number(req.query.radius || 15000);
+
+    if (!name) {
+      return res.status(400).json({ error: "Parametre 'name' requis" });
+    }
+
+    const matched = await findCatholicPlaceByName(name);
+    if (!matched) {
+      return res.status(404).json({ error: "Lieu non trouve" });
+    }
+
+    const nearby = await queryCatholicPlaces(matched.lat, matched.lon, radius);
+    const hasMatched = nearby.some((p) => p.id === matched.id && p.osmType === matched.osmType);
+    const places = hasMatched ? nearby : [{ ...matched, distanceM: 0 }, ...nearby];
+
+    return res.json({
+      matched,
+      places,
+      locationText: matched.address || `${matched.lat.toFixed(5)}, ${matched.lon.toFixed(5)}`
+    });
+  } catch {
+    return res.status(500).json({ error: "Erreur recherche lieu" });
   }
 });
 
