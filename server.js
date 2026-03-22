@@ -264,7 +264,7 @@ async function findCatholicPlaceByName(name) {
     }
   }
 
-  const fallbackRadii = [500, 1500, 5000, 12000, 25000];
+  const fallbackRadii = [500, 1500, 5000, 12000];
   for (const entry of rankedGeocodes) {
     const referencePoint = {
       lat: Number(entry.candidate.lat),
@@ -275,7 +275,7 @@ async function findCatholicPlaceByName(name) {
       try {
         const around = await queryCatholicPlaces(referencePoint.lat, referencePoint.lon, r);
         const best = pickBestPlaceCandidate(around, cleanName, referencePoint);
-        if (best && scorePlaceCandidate(best, cleanName, referencePoint) >= 2) {
+        if (best && scorePlaceCandidate(best, cleanName, referencePoint) >= 4) {
           return best;
         }
       } catch {
