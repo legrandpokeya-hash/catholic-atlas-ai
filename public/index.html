@@ -20,12 +20,20 @@
     </div>
   </header>
 
+  <section class="popular-strip">
+    <div class="popular-strip-head">
+      <h2>Eglises incontournables</h2>
+      <p>Cliquez sur une image pour lancer directement la recherche du lieu.</p>
+    </div>
+    <div id="popular-churches" class="popular-churches"></div>
+  </section>
+
   <main class="layout">
     <section class="panel search-panel">
       <h2>Recherche mondiale</h2>
       <form id="search-form">
-        <label for="place-input">Ville, pays ou lieu</label>
-        <input id="place-input" type="text" placeholder="Ex: Rome, Italie (laisser vide pour utiliser votre position)" />
+        <label for="place-input">Nom d'eglise, sanctuaire, paroisse ou ville</label>
+        <input id="place-input" type="text" placeholder="Ex: Santa Maria Regina Apostolorum ou Rome, Italie" />
 
         <label for="radius-input">Rayon (metres)</label>
         <input id="radius-input" type="number" min="1000" max="50000" value="15000" />
@@ -91,6 +99,28 @@ Ou remplissez la zone de texte ci-dessus pour une demande generale.</pre>
 
       <h3>Conseils utiles</h3>
       <ul id="tips-list"></ul>
+
+      <section class="feedback-card">
+        <h3>Suggestions d'amelioration</h3>
+        <p id="contact-intro">Envoyez une suggestion ou un signalement de bug.</p>
+        <div id="contact-links" class="contact-links"></div>
+        <form id="feedback-form">
+          <label for="feedback-name">Votre nom</label>
+          <input id="feedback-name" type="text" placeholder="Nom" />
+
+          <label for="feedback-email">Votre email</label>
+          <input id="feedback-email" type="email" placeholder="email@example.com" />
+
+          <label for="feedback-subject">Sujet</label>
+          <input id="feedback-subject" type="text" placeholder="Suggestion, bug, partenariat..." />
+
+          <label for="feedback-message">Message</label>
+          <textarea id="feedback-message" rows="4" placeholder="Decrivez votre suggestion ou le probleme rencontre."></textarea>
+
+          <button id="send-feedback" type="submit">Envoyer ma suggestion</button>
+          <p id="feedback-status" class="feedback-status">Vos suggestions nous aident a ameliorer l'application.</p>
+        </form>
+      </section>
     </section>
   </main>
 

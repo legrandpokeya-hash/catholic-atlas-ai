@@ -20,6 +20,15 @@ const detailsPracticalEl = document.getElementById("details-practical");
 const detailsContactsEl = document.getElementById("details-contacts");
 const detailsSummaryEl = document.getElementById("details-summary");
 const detailsNoteEl = document.getElementById("details-note");
+const popularChurchesEl = document.getElementById("popular-churches");
+const feedbackForm = document.getElementById("feedback-form");
+const feedbackNameEl = document.getElementById("feedback-name");
+const feedbackEmailEl = document.getElementById("feedback-email");
+const feedbackSubjectEl = document.getElementById("feedback-subject");
+const feedbackMessageEl = document.getElementById("feedback-message");
+const feedbackStatusEl = document.getElementById("feedback-status");
+const contactIntroEl = document.getElementById("contact-intro");
+const contactLinksEl = document.getElementById("contact-links");
 
 let currentPlaces = [];
 let currentLocationText = "";
@@ -27,6 +36,7 @@ let selectedPlace = null;
 let activeListItem = null;
 let currentUserCoords = null;
 let autoLocateAttempted = false;
+let activeSearchRequestId = 0;
 
 const map = L.map("map").setView([48.8566, 2.3522], 6);
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -41,6 +51,15 @@ function setStatus(text, isError = false) {
   statusEl.textContent = text;
   statusEl.style.borderLeftColor = isError ? "#9f2f2f" : "#b98b2f";
   statusEl.style.background = isError ? "#ffeaea" : "#fff7e5";
+}
+
+function nextSearchRequestId() {
+  activeSearchRequestId += 1;
+  return activeSearchRequestId;
+}
+
+function isStaleRequest(requestId) {
+  return requestId !== activeSearchRequestId;
 }
 
 function getGeolocationErrorMessage(error) {
@@ -255,14 +274,50 @@ async function loadEditorialContent() {
       li.textContent = t;
       tips.appendChild(li);
     });
+
+    contactIntroEl.textContent = data.contact?.intro || contactIntroEl.textContent;
+    contactLinksEl.innerHTML = "";
+    (data.contact?.emails || []).forEach((entry) => {
+      const link = document.createElement("a");
+      link.href = `mailto:${entry.value}`;
+      link.target = "_blank";
+      link.rel = "noreferrer";
+      link.textContent = `${entry.label}: ${entry.value}`;
+      contactLinksEl.appendChild(link);
+    });
+
+    popularChurchesEl.innerHTML = "";
+    (data.popularChurches || []).forEach((church, index) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "popular-card";
+      button.style.animationDelay = `${index * 120}ms`;
+      button.innerHTML = `
+        <img src="${escapeHtml(church.image || "")}" alt="${escapeHtml(church.name || "Eglise populaire")}" />
+        <span class="popular-card-overlay"></span>
+        <span class="popular-card-body">
+          <strong>${escapeHtml(church.name || "")}</strong>
+          <small>${escapeHtml(church.location || "")}</small>
+        </span>
+      `;
+      button.addEventListener("click", () => {
+        placeInput.value = church.query || church.name || "";
+        searchForm.requestSubmit();
+      });
+      popularChurchesEl.appendChild(button);
+    });
   } catch {
     // Keep defaults if content loading fails.
   }
 }
 
-async function searchByCoordinates(lat, lon, radius, locationLabel = "") {
+async function searchByCoordinates(lat, lon, radius, locationLabel = "", requestId = activeSearchRequestId) {
   setStatus("Recherche en cours...");
   const data = await fetchJson(`/api/places?lat=${lat}&lon=${lon}&radius=${radius}`);
+
+  if (isStaleRequest(requestId)) {
+    return;
+  }
 
   currentUserCoords = { lat, lon };
 
@@ -325,7 +380,7 @@ function getCurrentPosition() {
 }
 
 async function locateNearbyPlaces(options = {}) {
-  const { autoSelectFirst = false, autoScroll = false } = options;
+  const { autoSelectFirst = false, autoScroll = false, requestId = nextSearchRequestId() } = options;
   const radius = Number(radiusInput.value || 15000);
 
   setStatus("Obtention de votre position...");
@@ -339,7 +394,11 @@ async function locateNearbyPlaces(options = {}) {
     };
   }
 
-  await searchByCoordinates(coords.lat, coords.lon, radius, "autour de vous");
+  await searchByCoordinates(coords.lat, coords.lon, radius, "autour de vous", requestId);
+
+  if (isStaleRequest(requestId)) {
+    return;
+  }
 
   if (autoSelectFirst && currentPlaces.length > 0) {
     selectPlace(currentPlaces[0]);
@@ -357,7 +416,7 @@ async function autoLocateNearbyPlaces() {
   autoLocateAttempted = true;
 
   try {
-    await locateNearbyPlaces({ autoSelectFirst: true });
+    await locateNearbyPlaces({ autoSelectFirst: true, requestId: nextSearchRequestId() });
   } catch (error) {
     setStatus(getGeolocationErrorMessage(error), true);
   }
@@ -367,16 +426,22 @@ searchForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const place = placeInput.value.trim();
   const radius = Number(radiusInput.value || 15000);
+  const requestId = nextSearchRequestId();
 
   try {
     if (!place) {
-      await locateNearbyPlaces({ autoSelectFirst: true, autoScroll: true });
+      await locateNearbyPlaces({ autoSelectFirst: true, autoScroll: true, requestId });
       return;
     }
 
     const searchData = await fetchJson(`/api/place-search?name=${encodeURIComponent(place)}&radius=${radius}`);
+    if (isStaleRequest(requestId)) {
+      return;
+    }
+
     currentPlaces = searchData.places || [];
     currentLocationText = searchData.locationText || place;
+    selectedPlace = null;
 
     placeCard.classList.add("hidden");
     placeDetailsEl.classList.add("hidden");
@@ -395,7 +460,7 @@ searchForm.addEventListener("submit", async (event) => {
       fillOpacity: 0.1
     }).addTo(map);
 
-    setStatus(`Lieu trouve: ${searchData.matched.name}. Generation des informations utiles...`);
+    setStatus(searchData.warning || `Lieu trouve: ${searchData.matched.name}. Generation des informations utiles...`);
     selectPlace(searchData.matched);
     await generateGuideForSelectedPlace();
   } catch (error) {
@@ -413,9 +478,32 @@ searchForm.addEventListener("submit", async (event) => {
 
 locateBtn.addEventListener("click", async () => {
   try {
-    await locateNearbyPlaces({ autoSelectFirst: true, autoScroll: true });
+    await locateNearbyPlaces({ autoSelectFirst: true, autoScroll: true, requestId: nextSearchRequestId() });
   } catch (error) {
     setStatus(getGeolocationErrorMessage(error), true);
+  }
+});
+
+feedbackForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  feedbackStatusEl.textContent = "Envoi en cours...";
+
+  try {
+    const response = await fetchJson("/api/feedback", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: feedbackNameEl.value.trim(),
+        email: feedbackEmailEl.value.trim(),
+        subject: feedbackSubjectEl.value.trim(),
+        message: feedbackMessageEl.value.trim()
+      })
+    });
+
+    feedbackStatusEl.textContent = response.message || "Merci, votre suggestion a bien ete envoyee.";
+    feedbackForm.reset();
+  } catch (error) {
+    feedbackStatusEl.textContent = error.message || "Impossible d'envoyer votre suggestion.";
   }
 });
 

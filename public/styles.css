@@ -69,6 +69,76 @@ body {
   padding: 1rem;
 }
 
+.popular-strip {
+  padding: 1rem 1rem 0;
+}
+
+.popular-strip-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 1rem;
+  padding: 0 0.1rem 0.8rem;
+}
+
+.popular-strip-head p {
+  margin: 0;
+  color: #5f5547;
+}
+
+.popular-churches {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(180px, 1fr));
+  gap: 0.9rem;
+}
+
+.popular-card {
+  position: relative;
+  overflow: hidden;
+  min-height: 220px;
+  padding: 0;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 14px 30px rgba(49, 34, 14, 0.14);
+  animation: rise 600ms ease-out both;
+}
+
+.popular-card img {
+  width: 100%;
+  height: 100%;
+  min-height: 220px;
+  object-fit: cover;
+  display: block;
+}
+
+.popular-card-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(30, 20, 9, 0.05), rgba(30, 20, 9, 0.75));
+}
+
+.popular-card-body {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 1rem;
+  color: #fffaf0;
+  text-align: left;
+}
+
+.popular-card-body strong {
+  font-family: "Cinzel", serif;
+  font-size: 1rem;
+}
+
+.popular-card-body small {
+  opacity: 0.92;
+}
+
 .panel {
   border: 1px solid var(--line);
   background: var(--card);
@@ -324,6 +394,34 @@ button.secondary {
   color: var(--burnt);
 }
 
+.feedback-card {
+  margin-top: 1rem;
+  border-top: 1px solid var(--line);
+  padding-top: 1rem;
+}
+
+.contact-links {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0.75rem 0 1rem;
+}
+
+.contact-links a {
+  color: var(--burnt);
+  text-decoration: none;
+  word-break: break-word;
+}
+
+.contact-links a:hover {
+  text-decoration: underline;
+}
+
+.feedback-status {
+  margin: 0.7rem 0 0;
+  font-size: 0.9rem;
+  color: #5f5547;
+}
+
 @keyframes rise {
   from {
     opacity: 0;
@@ -336,6 +434,10 @@ button.secondary {
 }
 
 @media (max-width: 1100px) {
+  .popular-churches {
+    grid-template-columns: repeat(2, minmax(150px, 1fr));
+  }
+
   .layout {
     grid-template-columns: 1fr;
   }
@@ -346,6 +448,16 @@ button.secondary {
   }
 
   .details-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .popular-strip-head {
+    display: block;
+  }
+
+  .popular-churches {
     grid-template-columns: 1fr;
   }
 }

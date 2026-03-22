@@ -6,6 +6,7 @@ const fetch = require("node-fetch");
 const fs = require("fs/promises");
 const {
   buildExternalId,
+  createUserFeedback,
   deleteAdminPlace,
   getAdminPlaceByExternalId,
   getDb,
@@ -34,6 +35,7 @@ const OVERPASS_ENDPOINTS = [
   "https://overpass.kumi.systems/api/interpreter",
   "https://overpass.private.coffee/api/interpreter"
 ];
+const CONTENT_PATH = path.join(__dirname, "content", "editorial-content.json");
 
 async function fetchJson(url, options = {}) {
   const response = await fetch(url, {
@@ -92,6 +94,18 @@ function normalizeFeature(el) {
       .join(" "),
     tags
   };
+}
+
+function dedupePlaces(places) {
+  const seen = new Set();
+  return places.filter((place) => {
+    const key = buildExternalId(place);
+    if (seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
 }
 
 function escapeOverpassRegex(input) {
@@ -537,7 +551,34 @@ out center tags;
     .map(normalizeFeature)
     .filter((f) => Number.isFinite(f.lat) && Number.isFinite(f.lon))
     .map((f) => ({ ...f, distanceM: Math.round(haversineDistance(lat, lon, f.lat, f.lon)) }))
+    .filter((place) => place.name && place.name !== "Lieu catholique")
+    .filter((place, index, list) => index === list.findIndex((other) => buildExternalId(other) === buildExternalId(place)))
     .sort((a, b) => a.distanceM - b.distanceM);
+}
+
+async function readEditorialContent() {
+  try {
+    const raw = await fs.readFile(CONTENT_PATH, "utf8");
+    return JSON.parse(raw);
+  } catch {
+    return {
+      homeHero: {
+        title: "Catholic Atlas AI",
+        subtitle: "Trouvez des eglises et sanctuaires catholiques"
+      },
+      suggestedPilgrimages: [
+        { name: "Lourdes", why: "Grand lieu marial de pelerinage" },
+        { name: "Rome", why: "Centre mondial de l'Eglise catholique" }
+      ],
+      tips: [],
+      contact: {
+        heading: "Contact",
+        intro: "Ajoutez vos adresses email dans le contenu editorial pour recevoir les messages des utilisateurs.",
+        emails: []
+      },
+      popularChurches: []
+    };
+  }
 }
 
 function buildFallbackAiPlaceResponse(place) {
@@ -659,19 +700,8 @@ async function callOpenAi({ userPrompt, places, userLocationText }) {
 }
 
 app.get("/api/content", async (_req, res) => {
-  try {
-    const raw = await fs.readFile(path.join(__dirname, "content", "editorial-content.json"), "utf8");
-    res.json(JSON.parse(raw));
-  } catch (error) {
-    res.status(200).json({
-      hero: {
-        title: "Catholic Atlas AI",
-        subtitle: "Trouvez des eglises et sanctuaires catholiques"
-      },
-      suggestions: ["Lourdes", "Rome", "Fatima"],
-      tips: []
-    });
-  }
+  const content = await readEditorialContent();
+  res.status(200).json(content);
 });
 
 app.get("/api/geocode", async (req, res) => {
@@ -705,14 +735,23 @@ app.get("/api/place-search", async (req, res) => {
       return res.status(404).json({ error: "Lieu non trouve" });
     }
 
-    const nearby = await queryCatholicPlaces(matched.lat, matched.lon, radius);
+    let nearby = [];
+    let warning = "";
+
+    try {
+      nearby = await queryCatholicPlaces(matched.lat, matched.lon, radius);
+    } catch {
+      warning = "Lieu trouve, mais la recherche des lieux proches est temporairement indisponible.";
+    }
+
     const hasMatched = nearby.some((p) => p.id === matched.id && p.osmType === matched.osmType);
-    const places = hasMatched ? nearby : [{ ...matched, distanceM: 0 }, ...nearby];
+    const places = dedupePlaces(hasMatched ? nearby : [{ ...matched, distanceM: 0 }, ...nearby]);
 
     return res.json({
       matched,
       places,
-      locationText: matched.address || `${matched.lat.toFixed(5)}, ${matched.lon.toFixed(5)}`
+      locationText: matched.address || `${matched.lat.toFixed(5)}, ${matched.lon.toFixed(5)}`,
+      warning
     });
   } catch {
     return res.status(500).json({ error: "Erreur recherche lieu" });
@@ -831,6 +870,24 @@ app.post("/api/place-details", async (req, res) => {
     res.json(details);
   } catch (error) {
     res.status(500).json({ error: "Erreur details lieu", detail: error.message });
+  }
+});
+
+app.post("/api/feedback", async (req, res) => {
+  try {
+    const payload = req.body || {};
+    if (!String(payload.message || "").trim()) {
+      return res.status(400).json({ error: "Le message est requis" });
+    }
+
+    const saved = await createUserFeedback(payload);
+    return res.status(201).json({
+      ok: true,
+      feedback: saved,
+      message: "Merci, votre suggestion a bien ete envoyee."
+    });
+  } catch (error) {
+    return res.status(500).json({ error: "Impossible d'envoyer votre suggestion", detail: error.message });
   }
 });
 

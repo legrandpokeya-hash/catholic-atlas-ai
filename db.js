@@ -79,6 +79,17 @@ async function getDb() {
 
     CREATE INDEX IF NOT EXISTS idx_admin_places_name ON admin_places(name);
     CREATE INDEX IF NOT EXISTS idx_admin_places_category ON admin_places(category);
+
+    CREATE TABLE IF NOT EXISTS user_feedback (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT,
+      email TEXT,
+      subject TEXT,
+      message TEXT NOT NULL,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_user_feedback_created_at ON user_feedback(created_at);
   `);
 
     return db;
@@ -318,6 +329,40 @@ async function deleteAdminPlace(externalId) {
   await db.run("DELETE FROM admin_places WHERE external_id = ?", [externalId]);
 }
 
+async function createUserFeedback(input = {}) {
+  const payload = {
+    name: clean(input.name),
+    email: clean(input.email),
+    subject: clean(input.subject),
+    message: clean(input.message)
+  };
+
+  if (!payload.message) {
+    throw new Error("Le message est requis");
+  }
+
+  const db = await getDb();
+  const createdAt = new Date().toISOString();
+
+  if (!db) {
+    const id = `memory-${Date.now()}`;
+    memoryStore.set(`feedback:${id}`, { id, ...payload, createdAt });
+    return { id, ...payload, createdAt };
+  }
+
+  const result = await db.run(
+    `INSERT INTO user_feedback (name, email, subject, message, created_at)
+     VALUES (?, ?, ?, ?, ?)`,
+    [payload.name, payload.email, payload.subject, payload.message, createdAt]
+  );
+
+  return {
+    id: result.lastID,
+    ...payload,
+    createdAt
+  };
+}
+
 function mergeDetailsWithAdmin(baseDetails, adminDetails) {
   if (!adminDetails) {
     return {
@@ -365,6 +410,7 @@ function mergeDetailsWithAdmin(baseDetails, adminDetails) {
 
 module.exports = {
   buildExternalId,
+  createUserFeedback,
   deleteAdminPlace,
   getAdminPlaceByExternalId,
   getDb,
