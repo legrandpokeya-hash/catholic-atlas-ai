@@ -372,6 +372,26 @@ button.secondary {
   background: linear-gradient(90deg, #4f5f4f, #6f8a67);
 }
 
+.btn-osm-link {
+  display: block;
+  width: 100%;
+  margin-top: 0.6rem;
+  padding: 0.6rem 0.75rem;
+  text-align: center;
+  border-radius: 10px;
+  background: #f0f4ff;
+  border: 1px solid #b0bce0;
+  color: #2a449e;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 160ms ease;
+}
+
+.btn-osm-link:hover {
+  background: #dce5ff;
+}
+
 .popup-btn {
   width: auto;
   padding: 0.35rem 0.8rem;

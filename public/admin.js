@@ -211,6 +211,40 @@ newBtn.addEventListener("click", () => {
   setMessage(formStatusEl, "Nouvelle fiche prete.");
 });
 
+const loadFeedbackBtn = document.getElementById("load-feedback-btn");
+const feedbackListEl = document.getElementById("feedback-list");
+
+loadFeedbackBtn.addEventListener("click", async () => {
+  feedbackListEl.textContent = "Chargement...";
+  try {
+    const data = await fetchJson("/api/admin/feedback", {}, true);
+    const items = data.feedback || [];
+    if (!items.length) {
+      feedbackListEl.innerHTML = "<p>Aucune suggestion recue pour le moment.</p>";
+      return;
+    }
+
+    feedbackListEl.innerHTML = items.map((item) => `
+      <div style="border:1px solid #e0c98a;border-radius:6px;padding:0.8rem 1rem;margin-bottom:0.7rem;background:#fff9ed;">
+        <div style="font-weight:600;margin-bottom:0.3rem;">${escapeHtml(item.subject || "(sans sujet)")}</div>
+        <div style="font-size:0.9rem;color:#555;margin-bottom:0.5rem;">${escapeHtml(item.name || "Anonyme")} &mdash; ${escapeHtml(item.email || "")} &mdash; ${escapeHtml(item.createdAt || "")}</div>
+        <div style="white-space:pre-wrap;">${escapeHtml(item.message || "")}</div>
+      </div>
+    `).join("");
+  } catch (error) {
+    feedbackListEl.textContent = "Erreur: " + error.message;
+  }
+});
+
+function escapeHtml(value) {
+  return String(value || "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
 (function bootstrap() {
   const savedSecret = localStorage.getItem(STORAGE_SECRET_KEY) || "";
   adminSecretEl.value = savedSecret;

@@ -363,6 +363,27 @@ async function createUserFeedback(input = {}) {
   };
 }
 
+async function listFeedback(limit = 100) {
+  const db = await getDb();
+
+  if (!db) {
+    const rows = [];
+    for (const [key, value] of memoryStore.entries()) {
+      if (key.startsWith("feedback:")) {
+        rows.push(value);
+      }
+    }
+    return rows
+      .sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""))
+      .slice(0, limit);
+  }
+
+  return db.all(
+    "SELECT id, name, email, subject, message, created_at AS createdAt FROM user_feedback ORDER BY created_at DESC LIMIT ?",
+    [limit]
+  );
+}
+
 function mergeDetailsWithAdmin(baseDetails, adminDetails) {
   if (!adminDetails) {
     return {
@@ -415,6 +436,7 @@ module.exports = {
   getAdminPlaceByExternalId,
   getDb,
   listAdminPlaces,
+  listFeedback,
   mergeDetailsWithAdmin,
   upsertAdminPlace
 };

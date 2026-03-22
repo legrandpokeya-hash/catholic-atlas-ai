@@ -11,6 +11,7 @@ const {
   getAdminPlaceByExternalId,
   getDb,
   listAdminPlaces,
+  listFeedback,
   mergeDetailsWithAdmin,
   upsertAdminPlace
 } = require("./db");
@@ -827,6 +828,16 @@ app.delete("/api/admin/places/:externalId", requireAdmin, async (req, res) => {
     return res.json({ ok: true });
   } catch (error) {
     return res.status(500).json({ error: "Erreur suppression admin", detail: error.message });
+  }
+});
+
+app.get("/api/admin/feedback", requireAdmin, async (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit, 10) || 100, 500);
+    const results = await listFeedback(limit);
+    return res.json({ feedback: results, count: results.length });
+  } catch (error) {
+    return res.status(500).json({ error: "Impossible de charger les suggestions", detail: error.message });
   }
 });
 

@@ -45,24 +45,28 @@
       "name": "Basilique Saint-Pierre",
       "location": "Vatican",
       "query": "Basilique Saint-Pierre",
+      "url": "https://fr.wikipedia.org/wiki/Basilique_Saint-Pierre_du_Vatican",
       "image": "https://images.unsplash.com/photo-1523906834658-6e24ef2386f9?auto=format&fit=crop&w=900&q=80"
     },
     {
       "name": "Cathedrale Notre-Dame de Paris",
       "location": "Paris, France",
       "query": "Cathedrale Notre-Dame de Paris",
+      "url": "https://fr.wikipedia.org/wiki/Cath%C3%A9drale_Notre-Dame_de_Paris",
       "image": "https://images.unsplash.com/photo-1478391679764-b2d8b3cd1e94?auto=format&fit=crop&w=900&q=80"
     },
     {
       "name": "Sagrada Familia",
       "location": "Barcelone, Espagne",
       "query": "Sagrada Familia",
+      "url": "https://fr.wikipedia.org/wiki/Temple_de_la_Sagrada_Fam%C3%ADlia",
       "image": "https://images.unsplash.com/photo-1583779457094-ab6f37d173e0?auto=format&fit=crop&w=900&q=80"
     },
     {
       "name": "Sanctuaire Notre-Dame de Lourdes",
       "location": "Lourdes, France",
       "query": "Sanctuaire Notre-Dame de Lourdes",
+      "url": "https://fr.wikipedia.org/wiki/Sanctuaire_Notre-Dame_de_Lourdes",
       "image": "https://images.unsplash.com/photo-1500916434205-0c77489c6cf7?auto=format&fit=crop&w=900&q=80"
     }
   ]

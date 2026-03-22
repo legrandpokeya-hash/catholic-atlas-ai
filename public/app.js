@@ -91,8 +91,21 @@ function escapeHtml(value) {
     .replaceAll("'", "&#39;");
 }
 
-async function fetchJson(url, options = {}) {
-  const res = await fetch(url, options);
+async function fetchJson(url, options = {}, timeoutMs = 25000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  let res;
+  try {
+    res = await fetch(url, { ...options, signal: controller.signal });
+  } catch (err) {
+    if (err.name === "AbortError") {
+      throw new Error("Le serveur met trop de temps a repondre. Reessayez dans quelques secondes.");
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+
   const text = await res.text();
   let data = {};
 
@@ -132,6 +145,14 @@ function selectPlace(place) {
   placeCardBadge.textContent = place.category;
   placeCardName.textContent = place.name;
   placeCardAddr.textContent = place.address || `Coordonnees : ${place.lat.toFixed(5)}, ${place.lon.toFixed(5)}`;
+
+  // Update OpenStreetMap link
+  const osmLinkEl = document.getElementById("place-osm-link");
+  if (osmLinkEl && place.osmType && place.id) {
+    osmLinkEl.href = `https://www.openstreetmap.org/${place.osmType}/${place.id}`;
+    osmLinkEl.classList.remove("hidden");
+  }
+
   placeCard.classList.remove("hidden");
   loadPlaceDetails(place);
   placeCard.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -301,8 +322,12 @@ async function loadEditorialContent() {
         </span>
       `;
       button.addEventListener("click", () => {
-        placeInput.value = church.query || church.name || "";
-        searchForm.requestSubmit();
+        if (church.url) {
+          window.open(church.url, "_blank", "noopener,noreferrer");
+        } else {
+          placeInput.value = church.query || church.name || "";
+          searchForm.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+        }
       });
       popularChurchesEl.appendChild(button);
     });
@@ -434,7 +459,7 @@ searchForm.addEventListener("submit", async (event) => {
       return;
     }
 
-    const searchData = await fetchJson(`/api/place-search?name=${encodeURIComponent(place)}&radius=${radius}`);
+    const searchData = await fetchJson(`/api/place-search?name=${encodeURIComponent(place)}&radius=${radius}`, {}, 30000);
     if (isStaleRequest(requestId)) {
       return;
     }
@@ -446,9 +471,10 @@ searchForm.addEventListener("submit", async (event) => {
     placeCard.classList.add("hidden");
     placeDetailsEl.classList.add("hidden");
     renderPlaces(currentPlaces);
+    listEl.scrollIntoView({ behavior: "smooth", block: "start" });
 
     if (!searchData.matched) {
-      setStatus("Lieu non trouve. Verifiez l'orthographe et essayez un nom plus precis.", true);
+      setStatus("Lieu non trouve. Verifiez l'orthographe ou essayez le nom de la ville.", true);
       return;
     }
 
